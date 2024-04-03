@@ -4,7 +4,8 @@ const express = require('express')
 const bodyParser = require('body-parser')
 const ejs = require('ejs');
 const mongoose = require('mongoose');
-const md5 = require("md5")
+var bcrypt = require('bcryptjs');
+var salt = bcrypt.genSaltSync(10);
 
 
 const app = express()
@@ -35,9 +36,10 @@ app.get('/login', (req, res) => {
     res.render('register')
   })
   app.post("/register", (req, res) => {
-    const newUser = new User({
+    bcrypt.hash('req.body.password', salt, function(err, hash) {
+      const newUser = new User({
         email: req.body.username,
-        password:md5(req.body.password)
+        password:hash
     })
     newUser.save().then(function(){
         res.render("secrets")
@@ -45,21 +47,35 @@ app.get('/login', (req, res) => {
         console.log(err)
         res.redirect("/")
     })
+    });
+    
+   
   })
-  app.post("/login", (req, res) => {
+  const bcrypt = require('bcryptjs'); // Import bcrypt library
+
+app.post("/login", (req, res) => {
     const email = req.body.username;
-       const  password = md5(req.body.password);
-       User.findOne({email: email}).then(function(foundUser){
-        if(foundUser){
-            if (foundUser.password === password){
-                res.render("secrets")
-            }
+    const password = req.body.password; // Removed unnecessary parentheses around req.body.password
+
+    User.findOne({ email: email }).then(function(foundUser) {
+        if (foundUser) {
+            // Compare the provided password with the hashed password stored in the database
+            bcrypt.compare(password, foundUser.password, function(err, result) {
+                if (result === true) {
+                    res.render("secrets");
+                } else {
+                    res.redirect('/'); // Redirect if password does not match
+                }
+            });
+        } else {
+            res.redirect('/'); // Redirect if user is not found
         }
-       }).catch((err) => {
-        console.log(err)
-        res.redirect('/')
-       })
-  })
+    }).catch((err) => {
+        console.log(err);
+        res.redirect('/');
+    });
+});
+
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
